@@ -1,5 +1,6 @@
 import sys
 import os
+import shutil
 import pprint
 import urllib.request
 import urllib.parse
@@ -13,7 +14,11 @@ class StumiData:
         self.songs = []
         self.verbose = verbose
         self.url = None
+        self.template = None
 
+    def set_template(self, template):
+        self.template = template
+        
     def open(self, url):
         try:
             if self.verbose:
@@ -55,22 +60,23 @@ class StumiData:
             entry[key] = url
         return entry
     
-    def scrape(self):
+    def scrape(self, dirname):
         for song in self.songs:
-            self.scrape_song(song)
+            self.scrape_song(song, dirname)
 
-    def scrape_song(self, entry):
+    def scrape_song(self, entry, dirname):
         title = entry['title']
+        outputdir = os.path.join(dirname, title)
         if self.verbose:
-            print(f"MKDIR {title}", flush=True)
-        os.makedirs(title, exist_ok=True)
+            print(f"MKDIR {outputdir}", flush=True)
+        os.makedirs(outputdir, exist_ok=True)
         for key, url in entry.items():
             if key == 'title':
                 continue
             _, filename = os.path.split(url)
             if type(key) == type(1):
                 filename = f'{key}-{filename}'
-            pathname = os.path.join(title, filename)
+            pathname = os.path.join(outputdir, filename)
             entry[key] = filename
             url = urllib.parse.quote(url)
             url = urllib.parse.urljoin(self.url, url)
@@ -78,6 +84,14 @@ class StumiData:
             if self.verbose:
                 print(f'GET AUDIO {url} -> {pathname}', flush=True)
             urllib.request.urlretrieve(url, pathname)
+        if self.template:
+            # Copy template
+            _, ext = os.path.splitext(self.template)
+            project = title + ext
+            project = os.path.join(outputdir, project)
+            if self.verbose:
+                print(f'COPY {self.template} -> {project}', flush=True)
+            shutil.copytree(self.template, project)
 
     def dump(self):
         pprint.pprint(self.songs)
